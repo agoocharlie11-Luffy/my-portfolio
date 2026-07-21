@@ -573,6 +573,25 @@
     padding: 14px 20px;
   }
 
+  .cert-badge-link {
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+
+  .cert-badge-link:hover {
+    border-color: var(--amber, #b8863b);
+    transform: translateY(-1px);
+  }
+
+  .cert-view {
+    display: block;
+    font-size: 0.78em;
+    color: var(--amber, #b8863b);
+    margin-top: 2px;
+  }
+
   .cert-badge .mark {
     width: 34px;
     height: 34px;
@@ -872,27 +891,27 @@
       <h2 class="section-title">Credentialed where it counts.</h2>
     </div>
     <div class="certs-row">
-      <div class="cert-badge">
+      <a class="cert-badge cert-badge-link" href="certs/xero-l1-certified-associate.pdf" target="_blank" rel="noopener">
         <div class="mark">L1</div>
         <div>
-          <div class="label">Xero Advisor Certified</div>
-          <div class="sub">Level 1</div>
+          <div class="label">Xero Certified Associate</div>
+          <div class="sub">Level 1 <span class="cert-view">View certificate ↗</span></div>
         </div>
-      </div>
-      <div class="cert-badge">
+      </a>
+      <a class="cert-badge cert-badge-link" href="certs/xero-l2-certified-professional.pdf" target="_blank" rel="noopener">
         <div class="mark">L2</div>
         <div>
-          <div class="label">Xero Advisor Certified</div>
-          <div class="sub">Level 2</div>
+          <div class="label">Xero Certified Professional</div>
+          <div class="sub">Level 2 <span class="cert-view">View certificate ↗</span></div>
         </div>
-      </div>
-      <div class="cert-badge">
+      </a>
+      <a class="cert-badge cert-badge-link" href="certs/xero-l3-certified-specialist.pdf" target="_blank" rel="noopener">
         <div class="mark">L3</div>
         <div>
           <div class="label">Xero Certified Specialist</div>
-          <div class="sub">Level 3</div>
+          <div class="sub">Level 3 <span class="cert-view">View certificate ↗</span></div>
         </div>
-      </div>
+      </a>
       <div class="cert-badge">
         <div class="mark">BS</div>
         <div>
