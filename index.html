@@ -6,6 +6,21 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Charlie Agoo — Xero Bookkeeper | Accounting &amp; Automation</title>
 <meta content="Xero-certified bookkeeper with 9+ years of accounting experience in bank reconciliation, AP/AR, payroll, month-end support, and practical bookkeeping automation." name="description"/>
+<link href="https://agoocharlie11-luffy.github.io/my-portfolio/" rel="canonical"/>
+<link href="favicon.svg" rel="icon" type="image/svg+xml"/>
+<meta content="#14142b" name="theme-color"/>
+<meta content="index,follow" name="robots"/>
+<meta content="Charlie Agoo - Xero Bookkeeper | Accounting &amp; Automation" property="og:title"/>
+<meta content="Xero-certified bookkeeper with 9+ years of accounting experience in reconciliation, AP/AR, payroll, month-end support, and practical bookkeeping automation." property="og:description"/>
+<meta content="website" property="og:type"/>
+<meta content="https://agoocharlie11-luffy.github.io/my-portfolio/" property="og:url"/>
+<meta content="Charlie Agoo - Bookkeeping Portfolio" property="og:site_name"/>
+<meta content="summary" name="twitter:card"/>
+<meta content="Charlie Agoo - Xero Bookkeeper | Accounting &amp; Automation" name="twitter:title"/>
+<meta content="9+ years accounting experience, Xero L1-L3, reconciliation, AP/AR, payroll, month-end support, and bookkeeping automation." name="twitter:description"/>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Person","name":"Charlie D. Agoo","jobTitle":"Bookkeeper","url":"https://agoocharlie11-luffy.github.io/my-portfolio/","sameAs":["https://www.linkedin.com/in/charlie-agoo-a01619394","https://www.onlinejobs.ph/jobseekers/info/4487953"],"knowsAbout":["Xero","Bank Reconciliation","Accounts Payable","Accounts Receivable","Payroll Support","Month-End Close","Bookkeeping Automation"]}
+</script>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700&amp;family=Inter:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
@@ -753,6 +768,45 @@
   .remote-label { font-family:var(--mono); color:var(--amber-light); text-transform:uppercase; letter-spacing:.07em; }
   @media (max-width:900px) { .proof-strip .wrap { grid-template-columns:repeat(2,1fr); row-gap:18px; } .proof-strip .trust-item:nth-child(2) { border-right:0; } .automation-card { grid-template-columns:1fr; } }
   @media (max-width:560px) { .proof-strip .wrap { grid-template-columns:1fr 1fr; } .proof-strip .trust-item { padding:4px 12px; } .metric-number { font-size:23px; } .automation-card { padding:25px 20px; } .remote-setup { justify-content:flex-start; } }
+
+  /* ---------- Mobile navigation ---------- */
+  .mobile-nav { display:none; }
+  @media (max-width:720px) {
+    .nav-inner { padding:14px 20px; }
+    .nav-toggle {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:7px;
+      min-height:40px;
+      padding:8px 12px;
+      border:1px solid var(--line);
+      border-radius:8px;
+      background:rgba(255,255,255,.58);
+      color:var(--ink);
+      font:600 13px var(--sans);
+      cursor:pointer;
+    }
+    .nav-toggle svg { width:18px; height:18px; }
+    .mobile-nav {
+      display:none;
+      flex-direction:column;
+      gap:2px;
+      padding:8px 20px 16px;
+      border-top:1px solid var(--line);
+      background:rgba(246,241,231,.98);
+    }
+    .mobile-nav.open { display:flex; }
+    .mobile-nav a {
+      padding:11px 10px;
+      border-radius:7px;
+      color:var(--slate);
+      font-size:14px;
+      font-weight:600;
+    }
+    .mobile-nav a:hover { background:rgba(112,84,255,.08); color:var(--rust); }
+    .mobile-nav .mobile-cta { background:var(--ink); color:var(--parchment); margin-top:4px; text-align:center; }
+  }
 </style>
 </head>
 <body>
@@ -768,9 +822,23 @@
 <a href="#automation">Automation</a>
 <a href="#portfolio">Proof of Work</a>
 <a href="#experience">Experience</a>
+<a href="resume.html" rel="noopener" target="_blank">Resume</a>
 <a class="nav-cta" href="#contact">Get in Touch</a>
 </nav>
+<button aria-controls="mobile-nav" aria-expanded="false" aria-label="Open navigation menu" class="nav-toggle" type="button">
+<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
+<span>Menu</span>
+</button>
 </div>
+<nav aria-label="Mobile navigation" class="mobile-nav" id="mobile-nav">
+<a href="#about">About</a>
+<a href="#services">Services</a>
+<a href="#automation">Automation</a>
+<a href="#portfolio">Proof of Work</a>
+<a href="#experience">Experience</a>
+<a href="resume.html" rel="noopener" target="_blank">Resume</a>
+<a class="mobile-cta" href="#contact">Get in Touch</a>
+</nav>
 </header>
 <section class="hero hero-3d">
 <div class="hero-orb hero-orb-one"></div><div class="hero-orb hero-orb-two"></div>
@@ -1003,6 +1071,10 @@
 <svg fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
         Portfolio
       </a>
+<a href="resume.html" rel="noopener" target="_blank">
+<svg fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M6 2h9l3 3v17H6z"></path><path d="M14 2v4h4"></path><path d="M9 12h6M9 16h6"></path></svg>
+        View Resume
+      </a>
 <a href="tel:+639166365625">
 <svg fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
         +63 916 636 5625
@@ -1011,5 +1083,25 @@
 </div>
 </section>
 <footer>Charlie D. Agoo · Remote Bookkeeper · Aurora, Isabela, Philippines · © 2026</footer>
+<script>
+(() => {
+  const navToggle = document.querySelector('.nav-toggle');
+  const mobileNav = document.getElementById('mobile-nav');
+  if (!navToggle || !mobileNav) return;
+  const closeMenu = () => {
+    mobileNav.classList.remove('open');
+    navToggle.setAttribute('aria-expanded','false');
+    navToggle.setAttribute('aria-label','Open navigation menu');
+  };
+  navToggle.addEventListener('click', () => {
+    const open = !mobileNav.classList.contains('open');
+    mobileNav.classList.toggle('open', open);
+    navToggle.setAttribute('aria-expanded', String(open));
+    navToggle.setAttribute('aria-label', open ? 'Close navigation menu' : 'Open navigation menu');
+  });
+  mobileNav.querySelectorAll('a[href^="#"]').forEach(link => link.addEventListener('click', closeMenu));
+  window.addEventListener('resize', () => { if (window.innerWidth > 720) closeMenu(); });
+})();
+</script>
 </body>
 </html>
