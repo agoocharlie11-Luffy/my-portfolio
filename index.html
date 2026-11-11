@@ -935,16 +935,16 @@
 <div class="automation-copy">
 <div class="project-kicker">PROJECT 02</div>
 <h3>Invoice → Xero Automation</h3>
-<p>Built an n8n workflow that processes incoming invoice data, extracts structured fields, validates key values, checks for duplicates, supports account coding, and prepares draft bills for Xero for review.</p>
+<p>Built and tested an n8n portfolio demo that reads a fictional PDF invoice, validates its fields and totals, checks existing Xero supplier and bill records, and creates an unapproved draft bill in Charlie Test Company. The successful demo uses a template parser; an AI extraction path is configured but awaits a working provider credential.</p>
 <div class="portfolio-tags">
-<span class="tag">n8n</span><span class="tag">Xero</span><span class="tag">Gmail</span><span class="tag">AI Extraction</span><span class="tag">API / Webhooks</span>
+<span class="tag">n8n</span><span class="tag">Xero</span><span class="tag">PDF Extraction</span><span class="tag">Validation</span><span class="tag">API / Webhooks</span>
 </div>
-<div class="automation-note"><strong>Goal:</strong> reduce repetitive invoice entry while preserving review before transactions are finalised.</div>
+<div class="automation-note"><strong>Verified demo · 11 November 2026:</strong> created fictional bill DEMO-PHP-20261111-001 for PHP 240.80 with DRAFT status and no payment. Duplicate-guard logic passed a separate test; a repeat live run was not performed. Automatic creation is restricted to this approved sample. This is a portfolio demo, not a client engagement.</div>
 </div>
 <div aria-label="Invoice to Xero automation workflow" class="workflow">
-<div class="flow-step"><span>01</span>Gmail / Invoice</div>
+<div class="flow-step"><span>01</span>PDF Invoice Upload</div>
 <div class="flow-arrow">↓</div>
-<div class="flow-step"><span>02</span>AI Extraction</div>
+<div class="flow-step"><span>02</span>PDF Text Extraction</div>
 <div class="flow-arrow">↓</div>
 <div class="flow-step"><span>03</span>Validation</div>
 <div class="flow-arrow">↓</div>
