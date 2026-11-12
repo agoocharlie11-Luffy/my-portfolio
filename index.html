@@ -935,16 +935,16 @@
 <div class="automation-copy">
 <div class="project-kicker">PROJECT 02</div>
 <h3>Invoice → Xero Automation</h3>
-<p>Built and tested an n8n portfolio demo that reads a fictional PDF invoice, validates its fields and totals, checks existing Xero supplier and bill records, and creates an unapproved draft bill in Charlie Test Company. The successful demo uses a template parser; an AI extraction path is configured but awaits a working provider credential.</p>
+<p>Built and tested a Gmail-to-Xero workflow in n8n using Gemini to extract PDF invoice details and line items. It validates required fields and arithmetic, checks the configured supplier and existing bill numbers, then creates a draft bill or saves an exception for review. Label-based Gmail intake and a PDF upload form feed the same checks.</p>
 <div class="portfolio-tags">
-<span class="tag">n8n</span><span class="tag">Xero</span><span class="tag">PDF Extraction</span><span class="tag">Validation</span><span class="tag">API / Webhooks</span>
+<span class="tag">n8n</span><span class="tag">Xero</span><span class="tag">Gemini AI</span><span class="tag">Gmail</span><span class="tag">Validation</span><span class="tag">API / Webhooks</span>
 </div>
-<div class="automation-note"><strong>Verified demo · 11 November 2026:</strong> created fictional bill DEMO-PHP-20261111-001 for PHP 240.80 with DRAFT status and no payment. Duplicate-guard logic passed a separate test; a repeat live run was not performed. Automatic creation is restricted to this approved sample. This is a portfolio demo, not a client engagement.</div>
+<div class="automation-note"><strong>Verified · 12 November 2026:</strong> a fictional two-line PDF from Gmail produced a PHP 350.00 Xero DRAFT bill. A read-only repeat detected the existing invoice and blocked duplication. Outcomes are saved in an n8n review table; processed emails are labelled to avoid normal repeat processing. Active hourly for one PDF at a time. Current scope: mapped demo supplier, PHP and zero tax, with human approval retained in Xero. This is a portfolio project using a test organisation.<br/><a href="invoice-automation.html">View the case study and verified test results →</a></div>
 </div>
 <div aria-label="Invoice to Xero automation workflow" class="workflow">
-<div class="flow-step"><span>01</span>PDF Invoice Upload</div>
+<div class="flow-step"><span>01</span>Gmail / PDF Upload</div>
 <div class="flow-arrow">↓</div>
-<div class="flow-step"><span>02</span>PDF Text Extraction</div>
+<div class="flow-step"><span>02</span>Gemini Extraction</div>
 <div class="flow-arrow">↓</div>
 <div class="flow-step"><span>03</span>Validation</div>
 <div class="flow-arrow">↓</div>
