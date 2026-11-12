@@ -959,7 +959,7 @@
 <h3>Weekly Xero Financial Summary</h3>
 <p>Built and tested a scheduled n8n reporting workflow that reads Xero's standard accrual Profit &amp; Loss for the previous Monday–Sunday and a current snapshot of outstanding authorised sales invoices. Reports separate invoice currencies, flag missing permissions or unexpected layouts, and update one saved summary per organisation and reporting week.</p>
 <div class="portfolio-tags"><span class="tag">n8n</span><span class="tag">Xero Reports API</span><span class="tag">OAuth2</span><span class="tag">Financial Reporting</span></div>
-<div class="automation-note"><strong>Verified · 12 November 2026:</strong> completed a live read-only report test in Charlie Test Company and activated Mondays at 8:00 AM Asia/Manila. Reports are saved in an n8n data table; email and Google Sheets delivery are not configured. This is a portfolio project using a test organisation.</div>
+<div class="automation-note"><strong>Verified · 12 November 2026:</strong> completed a live read-only report test in Charlie Test Company and activated Mondays at 8:00 AM Asia/Manila. Reports are saved in an n8n data table and a Google Sheets tracker. Gmail delivery was tested successfully, with a sent-message log to skip reporting weeks already emailed; the tracker updates existing rows by reporting-week key. This is a portfolio project using a test organisation.</div>
 </div>
 <div aria-label="Weekly Xero financial summary workflow" class="workflow">
 <div class="flow-step"><span>01</span>Monday Schedule</div><div class="flow-arrow">↓</div>
