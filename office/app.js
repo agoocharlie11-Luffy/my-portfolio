@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-const CONFIG={supabaseUrl:'YOUR_SUPABASE_PROJECT_URL',supabaseAnonKey:'YOUR_SUPABASE_ANON_KEY',edgeFunction:'office-api'};
+const CONFIG=window.OFFICE_CONFIG||{supabaseUrl:'',supabaseAnonKey:'',edgeFunction:'office-api'};
 const $=id=>document.getElementById(id);
 const ready=CONFIG.supabaseUrl.startsWith('https://')&&!CONFIG.supabaseUrl.includes('YOUR_')&&!CONFIG.supabaseAnonKey.includes('YOUR_');
 const supabase=ready?createClient(CONFIG.supabaseUrl,CONFIG.supabaseAnonKey):null;
 const bots=[
 {id:'manager',name:'Operations Manager',desc:'Monitors workflow health, recent runs and operational alerts.',workflow:'n8n workspace overview',state:'pending',color:0x5bd7c5},
-{id:'invoice',name:'Invoice Bot',desc:'Receives supplier PDFs, extracts invoice details, validates totals and prepares Xero draft bills for human review.',workflow:'Gmail Invoice to Xero · tQI3pUdsQbnJuuaK',state:'active',color:0xf5b75c},
-{id:'reporting',name:'Reporting Bot',desc:'Builds the prior-week accrual P&L and current receivables snapshot, then updates Sheets and emails the summary.',workflow:'Weekly Xero Financial Summary · mRYVXiXmHJYcbaud',state:'active',color:0x60a5fa},
+{id:'invoice',name:'Invoice Bot',desc:'Receives supplier PDFs, extracts invoice details, validates totals and prepares Xero draft bills for human review.',workflow:'Gmail Invoice to Xero · tQI3pUdsQbnJuuaK',state:'pending',color:0xf5b75c},
+{id:'reporting',name:'Reporting Bot',desc:'Builds the prior-week accrual P&L and current receivables snapshot, then updates Sheets and emails the summary.',workflow:'Weekly Xero Financial Summary · mRYVXiXmHJYcbaud',state:'pending',color:0x60a5fa},
 {id:'caption',name:'Caption Bot',desc:'Planned video transcription and caption generation department.',workflow:'Video workflow connection not configured',state:'planned',color:0xf18bb8},
 {id:'posting',name:'Posting Bot',desc:'Planned publishing and post-status tracking for Facebook and YouTube.',workflow:'Publishing workflow connection not configured',state:'planned',color:0xa78bfa},
 {id:'scheduler',name:'Scheduler Bot',desc:'Coordinates scheduled tasks and upcoming automation runs.',workflow:'Existing schedule triggers are managed inside n8n',state:'pending',color:0x9bd27e}];
