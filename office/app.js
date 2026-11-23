@@ -3,7 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 const CONFIG=window.OFFICE_CONFIG||{supabaseUrl:'',supabaseAnonKey:'',edgeFunction:'office-api'};
 const $=id=>document.getElementById(id);
-const ready=CONFIG.supabaseUrl.startsWith('https://')&&!CONFIG.supabaseUrl.includes('YOUR_')&&!CONFIG.supabaseAnonKey.includes('YOUR_');
+const ready=typeof CONFIG.supabaseUrl==='string'&&CONFIG.supabaseUrl.startsWith('https://')&&!CONFIG.supabaseUrl.includes('YOUR_')&&typeof CONFIG.supabaseAnonKey==='string'&&CONFIG.supabaseAnonKey.length>20&&!CONFIG.supabaseAnonKey.includes('YOUR_');
 const supabase=ready?createClient(CONFIG.supabaseUrl,CONFIG.supabaseAnonKey):null;
 const bots=[
 {id:'manager',name:'Operations Manager',desc:'Monitors workflow health, recent runs and operational alerts.',workflow:'n8n workspace overview',state:'pending',color:0x5bd7c5},
