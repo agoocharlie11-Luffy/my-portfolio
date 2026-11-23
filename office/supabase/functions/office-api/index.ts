@@ -1,3 +1,91 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-const cors = {"Access-Control-Allow-Origin":"https://agoocharlie11-luffy.github.io","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS","Vary":"Origin"};
-Deno.serve(async(req)=>{if(req.method==="OPTIONS")return new Response("ok",{headers:cors});const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{...cors,"Content-Type":"application/json"}});if(req.method!=="POST")return json({error:"Method not allowed"},405);const auth=req.headers.get("Authorization")||"";if(!auth.startsWith("Bearer "))return json({error:"Authentication required"},401);const token=auth.slice(7);const url=Deno.env.get("SUPABASE_URL"),anon=Deno.env.get("SUPABASE_ANON_KEY"),allowed=Deno.env.get("OFFICE_ALLOWED_USER_ID"),base=Deno.env.get("N8N_BASE_URL")?.replace(/\/$/,""),key=Deno.env.get("N8N_API_KEY");if(!url||!anon||!allowed||!base||!key)return json({error:"Server configuration incomplete"},503);const sb=createClient(url,anon,{auth:{persistSession:false}});const {data:{user},error}=await sb.auth.getUser(token);if(error||!user||user.id!==allowed)return json({error:"Access denied"},403);let body;try{body=await req.json()}catch{return json({error:"Invalid JSON"},400)}if(body.action!=="overview")return json({error:"Only read-only overview is enabled. Workflow triggers are not configured."},409);const headers={"X-N8N-API-KEY":key,"Accept":"application/json"};try{const defs=[{id:"invoice",workflowId:"tQI3pUdsQbnJuuaK",workflowName:"Gmail Invoice to Xero"},{id:"reporting",workflowId:"mRYVXiXmHJYcbaud",workflowName:"Weekly Xero Financial Summary"}];const workflows=await Promise.all(defs.map(async w=>{const r=await fetch(base+"/api/v1/workflows/"+w.workflowId,{headers});if(!r.ok)return{id:w.id,workflowName:w.workflowName,status:"pending",note:"n8n returned HTTP "+r.status};const d=await r.json();return{id:w.id,workflowName:w.workflowName,status:d.active?"active":"pending"}}));const er=await fetch(base+"/api/v1/executions?limit=10&includeData=false",{headers});let recentExecutions=[];if(er.ok){const d=await er.json();recentExecutions=(d.data||[]).slice(0,10).map(e=>({workflowName:e.workflowName||e.workflowId,status:e.status||(e.finished?"success":"running"),startedAt:e.startedAt||e.createdAt||""}))}return json({workflows,recentExecutions})}catch{return json({error:"Could not reach n8n. Check server secrets and n8n API access."},502)}});
+
+const allowedOrigins = new Set([
+  "https://agoocharlie11-luffy.github.io",
+  "https://agoocharlie11.github.io",
+]);
+
+function corsHeaders(origin: string | null) {
+  return {
+    "Access-Control-Allow-Origin": origin && allowedOrigins.has(origin) ? origin : "https://agoocharlie11-luffy.github.io",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+}
+
+function json(body: unknown, status = 200, origin: string | null = null) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
+  });
+}
+
+Deno.serve(async (req) => {
+  const origin = req.headers.get("Origin");
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders(origin) });
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405, origin);
+
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401, origin);
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const allowedUserId = Deno.env.get("OFFICE_ALLOWED_USER_ID");
+  const n8nBaseUrl = Deno.env.get("N8N_BASE_URL")?.replace(/\/$/, "");
+  const webhookSecret = Deno.env.get("N8N_WEBHOOK_SECRET");
+
+  if (!supabaseUrl || !supabaseAnonKey || !allowedUserId || !n8nBaseUrl || !webhookSecret) {
+    return json({ error: "Server configuration incomplete" }, 503, origin);
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const token = authHeader.slice(7);
+  const { data: userData, error: userError } = await supabase.auth.getUser(token);
+  if (userError || !userData.user || userData.user.id !== allowedUserId) {
+    return json({ error: "Forbidden" }, 403, origin);
+  }
+
+  let body: { action?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return json({ error: "Invalid JSON body" }, 400, origin);
+  }
+  if (body.action !== "overview") return json({ error: "Unsupported action" }, 400, origin);
+
+  try {
+    const response = await fetch(`${n8nBaseUrl}/webhook/ai-office`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-office-secret": webhookSecret,
+        "Accept": "application/json",
+      },
+      body: JSON.stringify({ action: "overview" }),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return json({ error: "n8n webhook returned HTTP " + response.status }, 502, origin);
+    }
+
+    // The current n8n webhook only acknowledges receipt. It does not yet query
+    // workflow states or execution history, so report those as unverified.
+    return json({
+      backendConnected: true,
+      webhook: payload,
+      workflows: [
+        { id: "invoice", name: "Gmail Invoice to Xero", status: "pending", checked: false },
+        { id: "reporting", name: "Weekly Xero Financial Summary", status: "pending", checked: false },
+      ],
+      recentExecutions: [],
+      note: "Webhook connection verified. Live workflow status and execution history are not connected yet.",
+      checkedAt: new Date().toISOString(),
+    }, 200, origin);
+  } catch {
+    return json({ error: "Unable to reach the n8n webhook. Check that the workflow is active and the production URL is correct." }, 502, origin);
+  }
+});
