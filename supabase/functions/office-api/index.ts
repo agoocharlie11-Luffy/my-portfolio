@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
   const webhookSecret = Deno.env.get("N8N_WEBHOOK_SECRET");
 
   if (!supabaseUrl || !supabaseAnonKey || !allowedUserId || !n8nBaseUrl || !webhookSecret) {
-    return json({ error: "Server configuration incomplete" }, 503, origin);
+    return json({ error: "Server configuration incomplete. Check Supabase Edge Function secrets." }, 503, origin);
   }
 
   const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -48,15 +48,26 @@ Deno.serve(async (req) => {
     return json({ error: "Forbidden" }, 403, origin);
   }
 
-  let body: { action?: string };
+  let body: { action?: string; message?: string; language?: string };
   try {
     body = await req.json();
   } catch {
     return json({ error: "Invalid JSON body" }, 400, origin);
   }
-  if (body.action !== "overview") return json({ error: "Unsupported action" }, 400, origin);
+
+  if (body.action !== "overview" && body.action !== "chat") {
+    return json({ error: "Unsupported action" }, 400, origin);
+  }
+
+  if (body.action === "chat" && (typeof body.message !== "string" || !body.message.trim() || body.message.length > 2000)) {
+    return json({ error: "A message between 1 and 2,000 characters is required." }, 400, origin);
+  }
 
   try {
+    const payloadIn = body.action === "chat"
+      ? { action: "chat", message: body.message!.trim(), language: body.language === "fil-PH" ? "fil-PH" : "en-US" }
+      : { action: "overview" };
+
     const response = await fetch(`${n8nBaseUrl}/webhook/ai-office`, {
       method: "POST",
       headers: {
@@ -64,7 +75,8 @@ Deno.serve(async (req) => {
         "x-office-secret": webhookSecret,
         "Accept": "application/json",
       },
-      body: JSON.stringify({ action: "overview" }),
+      body: JSON.stringify(payloadIn),
+      signal: AbortSignal.timeout(body.action === "chat" ? 60000 : 15000),
     });
 
     const payload = await response.json().catch(() => ({}));
@@ -72,8 +84,17 @@ Deno.serve(async (req) => {
       return json({ error: "n8n webhook returned HTTP " + response.status }, 502, origin);
     }
 
-    // The current n8n webhook only acknowledges receipt. It does not yet query
-    // workflow states or execution history, so report those as unverified.
+    if (body.action === "chat") {
+      const result = Array.isArray(payload) ? payload[0] : payload;
+      const reply = result?.reply ?? result?.output ?? result?.text ?? result?.response ?? "";
+      if (typeof reply !== "string" || !reply.trim()) {
+        return json({ error: "The n8n webhook received the chat request but did not return a reply. Add an AI chat branch and return { reply: \"... \" }." }, 200, origin);
+      }
+      return json({ reply: reply.trim() }, 200, origin);
+    }
+
+    // The current overview workflow is an acknowledgement only; do not claim
+    // that live n8n workflow states or execution history have been queried.
     return json({
       backendConnected: true,
       webhook: payload,
@@ -85,7 +106,10 @@ Deno.serve(async (req) => {
       note: "Webhook connection verified. Live workflow status and execution history are not connected yet.",
       checkedAt: new Date().toISOString(),
     }, 200, origin);
-  } catch {
-    return json({ error: "Unable to reach the n8n webhook. Check that the workflow is active and the production URL is correct." }, 502, origin);
+  } catch (error) {
+    const message = error instanceof Error && error.name === "TimeoutError"
+      ? "The n8n webhook timed out."
+      : "Unable to reach the n8n webhook. Check that the workflow is active and the production URL is correct.";
+    return json({ error: message }, 502, origin);
   }
 });
