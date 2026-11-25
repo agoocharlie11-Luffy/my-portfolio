@@ -23,6 +23,15 @@ function json(body: unknown, status = 200, origin: string | null = null) {
   });
 }
 
+function bytesToBase64(bytes: Uint8Array) {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
 Deno.serve(async (req) => {
   const origin = req.headers.get("Origin");
   if (req.method === "OPTIONS") {
@@ -78,7 +87,7 @@ Deno.serve(async (req) => {
     return json({ error: "Forbidden" }, 403, origin);
   }
 
-  let body: { action?: string; message?: string; language?: string };
+  let body: { action?: string; message?: string; language?: string; voice?: boolean };
   try {
     body = await req.json();
   } catch {
@@ -140,7 +149,49 @@ Deno.serve(async (req) => {
       }, 502, origin);
     }
 
-    return json({ reply: reply.trim() }, 200, origin);
+    const cleanReply = reply.trim();
+
+    if (body.voice === true) {
+      const ttsWebhookSecret = Deno.env.get("N8N_TTS_WEBHOOK_SECRET");
+      if (!ttsWebhookSecret) {
+        return json({ reply: cleanReply, voiceError: "TTS webhook secret is not configured." }, 200, origin);
+      }
+
+      try {
+        const audioResponse = await fetch(`${n8nBaseUrl}/webhook/charlie-tts`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-office-secret": ttsWebhookSecret,
+            "Accept": "audio/mpeg",
+          },
+          body: JSON.stringify({ message: cleanReply }),
+          signal: AbortSignal.timeout(60000),
+        });
+
+        if (!audioResponse.ok) {
+          return json({
+            reply: cleanReply,
+            voiceError: "The ElevenLabs webhook returned HTTP " + audioResponse.status + ".",
+          }, 200, origin);
+        }
+
+        const audioBytes = new Uint8Array(await audioResponse.arrayBuffer());
+        if (!audioBytes.length) {
+          return json({ reply: cleanReply, voiceError: "The TTS webhook returned an empty audio file." }, 200, origin);
+        }
+
+        return json({
+          reply: cleanReply,
+          audioBase64: bytesToBase64(audioBytes),
+          audioMimeType: audioResponse.headers.get("content-type")?.split(";")[0] || "audio/mpeg",
+        }, 200, origin);
+      } catch {
+        return json({ reply: cleanReply, voiceError: "Unable to reach the ElevenLabs TTS webhook." }, 200, origin);
+      }
+    }
+
+    return json({ reply: cleanReply }, 200, origin);
   } catch (error) {
     const message = error instanceof Error && error.name === "TimeoutError"
       ? "Charlie timed out while waiting for Gemini. Please try again."
