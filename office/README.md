@@ -1,60 +1,97 @@
-# Private 3D AI Office — setup
+# Charlie AI Office — hybrid hologram edition
 
-This is a separate static app at `/office/`. The existing portfolio homepage is not modified.
+Private static app served at `/office/`. The portfolio homepage is separate and is not changed by this app.
 
-## Current build
+## What this branch adds
 
-- Three.js 3D office with six selectable bot profiles.
-- Supabase email/password authentication; there is no public sign-up UI.
-- Two known n8n workflows are listed from the previously inspected workspace:
-  - Gmail Invoice to Xero — `tQI3pUdsQbnJuuaK`
-  - Weekly Xero Financial Summary — `mRYVXiXmHJYcbaud`
-- Both workflows are marked **setup/pending** until the server-side API successfully verifies their live state.
-- No run buttons or workflow mutation actions are exposed yet.
+- A Three.js transparent projection chamber with animated blue plasma particles.
+- A human-shaped particle silhouette that fades in while listening / speaking and recedes during idle.
+- Text chat UI, browser microphone input (Web Speech API), and browser speech output (SpeechSynthesis).
+- English and Filipino speech locale selection.
+- Authenticated Supabase Edge Function actions for read-only overview and chat forwarding to n8n.
+- Existing six department profiles and Supabase email/password sign-in are retained.
 
-## 1. Configure Supabase Auth
+The browser voice animation is a visual speech-state animation. Browser SpeechSynthesis does not expose a reliable raw audio stream to this page, so this build animates to the speaking state rather than claiming waveform-perfect audio analysis. Actual AI responses require the n8n chat branch described below.
 
-1. Create or use a Supabase project on the Free plan.
-2. In Supabase Project Settings → API, copy the Project URL and anon/publishable key.
-3. Edit `office/config.js` and enter those two public client values.
-4. In Authentication → URL Configuration, set:
-   - Site URL: `https://agoocharlie11-luffy.github.io`
-   - Redirect URL: `https://agoocharlie11-luffy.github.io/my-portfolio/office/`
-5. Disable public sign-ups. Create/invite only approved users from the Supabase dashboard.
-6. Keep email/password sign-in enabled.
+## 1. Supabase Auth
 
-The anon/publishable key is designed to be public. Never place a Supabase service-role/secret key, database password, n8n API key, or webhook secret in this repository.
+The app uses the public Supabase URL and publishable/anon key in `office/config.js`. These are browser-safe values. Never put service-role keys, database passwords, model API keys, or webhook secrets in this file or in GitHub.
 
-## 2. Deploy the secure n8n monitoring function
+In Supabase Authentication → URL Configuration:
+- Site URL: `https://agoocharlie11-luffy.github.io`
+- Redirect URL: `https://agoocharlie11-luffy.github.io/my-portfolio/office/`
 
-The Edge Function source is in `supabase/functions/office-api/index.ts`. It verifies the caller's Supabase JWT and checks an allowlisted Supabase user ID before contacting n8n. It only implements read-only overview monitoring.
+Disable public sign-ups and create only approved users. The Edge Function checks both the Supabase JWT and `OFFICE_ALLOWED_USER_ID`.
 
-Install the Supabase CLI, log in and link this project, then set secrets and deploy:
+## 2. Deploy the Edge Function
+
+Install the Supabase CLI, log in and link the existing project. Use the project ref from your Supabase dashboard.
 
 ```sh
 supabase login
 supabase link --project-ref YOUR_PROJECT_REF
-supabase secrets set N8N_BASE_URL=https://agoocharlie11.app.n8n.cloud
-supabase secrets set N8N_API_KEY=YOUR_N8N_API_KEY
-supabase secrets set OFFICE_ALLOWED_USER_ID=YOUR_SUPABASE_AUTH_USER_UUID
+supabase secrets set OFFICE_ALLOWED_USER_ID=YOUR_AUTH_USER_UUID
+supabase secrets set N8N_BASE_URL=https://YOUR_PUBLIC_N8N_HTTPS_HOST
+supabase secrets set N8N_WEBHOOK_SECRET=YOUR_LONG_RANDOM_WEBHOOK_SECRET
 supabase functions deploy office-api
 ```
 
-Supabase provides `SUPABASE_URL` and `SUPABASE_ANON_KEY` to Edge Functions. Do not commit secret values.
+The exact secret name expected by the function is `N8N_WEBHOOK_SECRET` (not `N8N_API_KEY`). Supabase supplies `SUPABASE_URL` and `SUPABASE_ANON_KEY` to the function.
 
-## 3. Security and controls
+## 3. Required n8n webhook contract
 
-- GitHub Pages is public hosting; the login screen gates the UI but does not make source files private.
-- Supabase Auth protects access to the app.
-- The Edge Function independently verifies the JWT and allowlisted user ID.
-- n8n API credentials remain in Supabase Edge Function secrets.
-- This first function is read-only. It does not trigger workflows, modify Xero, or expose a generic n8n proxy.
-- Do not add run controls until dedicated n8n webhook entry points have been created, protected with Header Auth, tested, and explicitly allowlisted server-side.
+Create and activate a Webhook-triggered workflow with production path:
 
-## 4. Publish
+`POST /webhook/ai-office`
 
-The app URL is:
+Protect the webhook with a header check for `x-office-secret` matching the Supabase secret. Do not expose the n8n editor publicly.
+
+The Edge Function sends one of these JSON bodies:
+
+Overview:
+```json
+{ "action": "overview" }
+```
+
+Chat:
+```json
+{ "action": "chat", "message": "Hello Charlie", "language": "en-US" }
+```
+
+For chat, the workflow must call an AI model using an API credential stored inside n8n, then respond synchronously with JSON such as:
+
+```json
+{ "reply": "Hello! How can I help you today?" }
+```
+
+The function also accepts `output`, `text`, or `response` instead of `reply`. For Filipino, the language value is `fil-PH`.
+
+The current Edge Function verifies the signed-in user and allowlisted user ID before sending the request. It does not expose a generic n8n proxy.
+
+## 4. Local Docker n8n
+
+Supabase Edge Functions run on the internet and cannot reach `http://localhost:5678` on your PC. If n8n stays on local Docker, configure a secure HTTPS tunnel to the n8n webhook endpoint and set `N8N_BASE_URL` to that HTTPS host. Keep the n8n editor protected; do not publish port 5678 openly. A stable hosted n8n endpoint is another option.
+
+The webhook workflow must be active and return the chat response in the same request. If it only acknowledges receipt, the chat UI will accurately report that no AI reply was returned.
+
+## 5. Voice support and browser notes
+
+- Microphone input uses `SpeechRecognition` / `webkitSpeechRecognition`; it is supported in current Chromium browsers, but support varies by browser and platform.
+- Speech output uses the browser's `speechSynthesis`. Available Filipino voices depend on the operating system/browser.
+- GitHub Pages uses HTTPS, which is required for microphone permission outside localhost.
+- Text chat remains available if microphone recognition is unsupported or denied.
+
+## 6. Known limitations
+
+- Department cards are informational profiles; they do not run accounting or publishing workflows.
+- Overview still reports the two known Xero workflows as pending until a real monitoring API is implemented.
+- Live execution history, workflow controls, invoice processing, and reporting actions are not enabled by this UI update.
+- AI chat becomes operational only after the n8n webhook, AI model credential, public HTTPS route, and Edge Function deployment are configured and tested.
+
+## 7. Publish
+
+The app URL remains:
 
 https://agoocharlie11-luffy.github.io/my-portfolio/office/
 
-GitHub Pages must publish from the repository's `main` branch. Static assets under `office/` are served automatically. The portfolio root page remains untouched.
+This branch is a feature branch. Review and merge it into `main` only after the visual and backend tests pass. The portfolio root page is untouched.
