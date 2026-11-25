@@ -38,14 +38,23 @@ Deno.serve(async (req) => {
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
   const allowedUserId = Deno.env.get("OFFICE_ALLOWED_USER_ID");
   const n8nBaseUrl = Deno.env.get("N8N_BASE_URL")?.replace(/\/+$/, "");
   const webhookSecret = Deno.env.get("N8N_WEBHOOK_SECRET");
 
-  if (!supabaseUrl || !supabaseAnonKey || !allowedUserId || !n8nBaseUrl || !webhookSecret) {
+  const missingSettings = [
+    !supabaseUrl ? "SUPABASE_URL" : null,
+    !supabaseAnonKey ? "SUPABASE_ANON_KEY or SUPABASE_PUBLISHABLE_KEY" : null,
+    !allowedUserId ? "OFFICE_ALLOWED_USER_ID" : null,
+    !n8nBaseUrl ? "N8N_BASE_URL" : null,
+    !webhookSecret ? "N8N_WEBHOOK_SECRET" : null,
+  ].filter(Boolean);
+
+  if (missingSettings.length) {
     return json({
-      error: "Server configuration incomplete. Check the office-api Edge Function secrets.",
+      error: "Server configuration incomplete.",
+      missingSettings,
     }, 503, origin);
   }
 
@@ -90,13 +99,15 @@ Deno.serve(async (req) => {
   // authenticated Charlie webhook below.
   if (body.action === "overview") {
     return json({
+      backendConfigured: true,
       backendConnected: false,
+      backendStatus: "configured_not_health_checked",
       workflows: [
         { id: "invoice", name: "Gmail Invoice to Xero", status: "pending", checked: false },
         { id: "reporting", name: "Weekly Xero Financial Summary", status: "pending", checked: false },
       ],
       recentExecutions: [],
-      note: "Dashboard overview is a placeholder. Live workflow status and execution history are not connected yet.",
+      note: "Supabase authentication and the n8n webhook settings are configured. A live n8n health check and workflow execution history are not implemented yet.",
       checkedAt: new Date().toISOString(),
     }, 200, origin);
   }
