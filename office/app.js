@@ -117,30 +117,57 @@ $('language').addEventListener('change',()=>{if(recognition)recognition.lang=voi
 function random(min,max){return min+Math.random()*(max-min)}
 function createHumanCloud(){
   const group=new THREE.Group();
-  const coreMat=new THREE.MeshBasicMaterial({color:0x8df7ff,transparent:true,opacity:.72,blending:THREE.AdditiveBlending});
-  figureMat=coreMat;
-  const core=new THREE.Mesh(new THREE.IcosahedronGeometry(.53,4),coreMat);
-  group.add(core);
-  const inner=new THREE.Mesh(new THREE.SphereGeometry(.34,32,32),new THREE.MeshBasicMaterial({color:0x1d8fff,transparent:true,opacity:.48,blending:THREE.AdditiveBlending}));
-  group.add(inner);
-  const shell=new THREE.Mesh(new THREE.IcosahedronGeometry(.78,2),new THREE.MeshBasicMaterial({color:0x69dfff,wireframe:true,transparent:true,opacity:.26,blending:THREE.AdditiveBlending}));
-  group.add(shell);
-  const halo=new THREE.Mesh(new THREE.SphereGeometry(.92,32,32),new THREE.MeshBasicMaterial({color:0x3a8dff,transparent:true,opacity:.07,side:THREE.BackSide,blending:THREE.AdditiveBlending}));
-  group.add(halo);
-  const orbitMat=new THREE.MeshBasicMaterial({color:0x76efff,transparent:true,opacity:.7,blending:THREE.AdditiveBlending});
-  const orbitA=new THREE.Mesh(new THREE.TorusGeometry(1.05,.012,8,128),orbitMat);
-  orbitA.rotation.x=Math.PI/2.35;orbitA.rotation.y=.2;group.add(orbitA);
-  const orbitB=new THREE.Mesh(new THREE.TorusGeometry(.88,.009,8,128),new THREE.MeshBasicMaterial({color:0x9c78ff,transparent:true,opacity:.72,blending:THREE.AdditiveBlending}));
-  orbitB.rotation.x=.9;orbitB.rotation.y=1.15;group.add(orbitB);
-  const orbitC=new THREE.Mesh(new THREE.TorusGeometry(1.2,.006,6,128),new THREE.MeshBasicMaterial({color:0x2e9dff,transparent:true,opacity:.48,blending:THREE.AdditiveBlending}));
-  orbitC.rotation.x=1.2;orbitC.rotation.z=.8;group.add(orbitC);
-  for(let i=0;i<8;i++){
-    const a=i*Math.PI/4;
-    const node=new THREE.Mesh(new THREE.SphereGeometry(.045,12,12),new THREE.MeshBasicMaterial({color:i%2?0x9b7cff:0x8df7ff,transparent:true,opacity:.95,blending:THREE.AdditiveBlending}));
-    node.position.set(Math.cos(a)*1.05,Math.sin(a*.7)*.24,Math.sin(a)*1.05);
-    group.add(node);
+  const holoMat=new THREE.MeshBasicMaterial({color:0x8df7ff,transparent:true,opacity:.82,blending:THREE.AdditiveBlending,depthWrite:false});
+  figureMat=holoMat;
+  const softMat=new THREE.MeshBasicMaterial({color:0x248fff,transparent:true,opacity:.38,blending:THREE.AdditiveBlending,depthWrite:false});
+  const wireMat=new THREE.MeshBasicMaterial({color:0x77eaff,wireframe:true,transparent:true,opacity:.42,blending:THREE.AdditiveBlending,depthWrite:false});
+  const makePart=(geometry,material,x,y,z,sx=1,sy=1,sz=1)=>{
+    const mesh=new THREE.Mesh(geometry,material);mesh.position.set(x,y,z);mesh.scale.set(sx,sy,sz);group.add(mesh);return mesh;
+  };
+  // Head, neck and a softly glowing face
+  const head=makePart(new THREE.SphereGeometry(.19,24,20),holoMat,0,.72,0,1,.98,.82);
+  makePart(new THREE.SphereGeometry(.195,16,14),wireMat,0,.72,0,1,1,.84);
+  makePart(new THREE.CylinderGeometry(.065,.075,.12,16),holoMat,0,.49,0);
+  const eyeMat=new THREE.MeshBasicMaterial({color:0xc7fbff,transparent:true,opacity:.95,blending:THREE.AdditiveBlending});
+  makePart(new THREE.SphereGeometry(.018,10,8),eyeMat,-.065,.74,.15);
+  makePart(new THREE.SphereGeometry(.018,10,8),eyeMat,.065,.74,.15);
+  const mouth=makePart(new THREE.BoxGeometry(.075,.012,.012),eyeMat,0,.655,.158);
+  // Torso and a bright chest reactor
+  makePart(new THREE.SphereGeometry(1,24,20),holoMat,0,.13,0,.27,.39,.15);
+  makePart(new THREE.SphereGeometry(1,16,12),wireMat,0,.13,0,.285,.405,.16);
+  makePart(new THREE.SphereGeometry(.075,16,12),softMat,0,.18,.145,1,1,.5);
+  makePart(new THREE.SphereGeometry(.23,20,16),holoMat,0,-.22,0,.92,.28,.72);
+  // Articulated arms: shoulder pivots, elbows and hands
+  const makeArm=(side)=>{
+    const shoulder=new THREE.Group();shoulder.position.set(side*.29,.38,0);group.add(shoulder);
+    const upper=new THREE.Mesh(new THREE.CylinderGeometry(.055,.075,.34,12),holoMat);upper.position.y=-.19;shoulder.add(upper);
+    const joint=new THREE.Mesh(new THREE.SphereGeometry(.065,12,10),softMat);joint.position.y=-.38;shoulder.add(joint);
+    const forearm=new THREE.Group();forearm.position.y=-.38;shoulder.add(forearm);
+    const lower=new THREE.Mesh(new THREE.CylinderGeometry(.04,.055,.31,12),holoMat);lower.position.y=-.17;forearm.add(lower);
+    const hand=new THREE.Mesh(new THREE.SphereGeometry(.065,14,10),holoMat);hand.position.set(0,-.35,.015);hand.scale.set(.78,1,.65);forearm.add(hand);
+    for(let i=0;i<3;i++){const finger=new THREE.Mesh(new THREE.CylinderGeometry(.009,.012,.085,6),holoMat);finger.position.set((i-1)*.025,-.415,.035);finger.rotation.z=(i-1)*-.12;forearm.add(finger)}
+    return {shoulder,forearm,side};
+  };
+  const leftArm=makeArm(-1),rightArm=makeArm(1);
+  // Legs give the projection a complete, readable human silhouette
+  for(const side of [-1,1]){
+    const leg=new THREE.Group();leg.position.set(side*.13,-.32,0);group.add(leg);
+    const thigh=new THREE.Mesh(new THREE.CylinderGeometry(.075,.06,.36,12),holoMat);thigh.position.y=-.19;leg.add(thigh);
+    const knee=new THREE.Mesh(new THREE.SphereGeometry(.055,10,8),softMat);knee.position.y=-.37;leg.add(knee);
+    const shin=new THREE.Mesh(new THREE.CylinderGeometry(.045,.055,.31,12),holoMat);shin.position.y=-.54;leg.add(shin);
+    const foot=new THREE.Mesh(new THREE.SphereGeometry(.075,12,8),holoMat);foot.position.set(0,-.71,.045);foot.scale.set(.8,.42,1.25);leg.add(foot);
   }
+  // Orbital hologram rings around the avatar
+  const orbitA=new THREE.Mesh(new THREE.TorusGeometry(.78,.009,8,128),new THREE.MeshBasicMaterial({color:0x76efff,transparent:true,opacity:.7,blending:THREE.AdditiveBlending}));
+  orbitA.rotation.x=Math.PI/2.35;orbitA.rotation.y=.2;orbitA.position.y=.18;group.add(orbitA);
+  const orbitB=new THREE.Mesh(new THREE.TorusGeometry(.67,.008,8,128),new THREE.MeshBasicMaterial({color:0x9c78ff,transparent:true,opacity:.68,blending:THREE.AdditiveBlending}));
+  orbitB.rotation.x=.9;orbitB.rotation.y=1.15;orbitB.position.y=.18;group.add(orbitB);
+  const orbitC=new THREE.Mesh(new THREE.TorusGeometry(.91,.006,6,128),new THREE.MeshBasicMaterial({color:0x2e9dff,transparent:true,opacity:.45,blending:THREE.AdditiveBlending}));
+  orbitC.rotation.x=1.2;orbitC.rotation.z=.8;orbitC.position.y=.18;group.add(orbitC);
+  const halo=new THREE.Mesh(new THREE.SphereGeometry(.86,24,20),new THREE.MeshBasicMaterial({color:0x3a8dff,transparent:true,opacity:.045,side:THREE.BackSide,blending:THREE.AdditiveBlending}));
+  halo.position.y=.18;group.add(halo);
   group.userData.orbits=[orbitA,orbitB,orbitC];
+  group.userData.leftArm=leftArm;group.userData.rightArm=rightArm;group.userData.head=head;group.userData.mouth=mouth;
   return group;
 }
 function initScene(){const host=$('scene');scene=new THREE.Scene();camera=new THREE.PerspectiveCamera(38,host.clientWidth/host.clientHeight,.1,100);camera.position.set(0,2.1,7.4);renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));renderer.setSize(host.clientWidth,host.clientHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;host.appendChild(renderer.domElement);controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.enablePan=false;controls.minDistance=5.5;controls.maxDistance=10;controls.minPolarAngle=1.05;controls.maxPolarAngle=1.72;controls.target.set(0,1.1,0);controls.autoRotate=true;controls.autoRotateSpeed=.35;
@@ -154,7 +181,7 @@ figure=createHumanCloud();figure.position.y=.35;chamber.add(figure);
 const n=2600,pos=new Float32Array(n*3),vel=new Float32Array(n);for(let i=0;i<n;i++){const a=random(0,Math.PI*2),r=Math.sqrt(Math.random())*1.65;pos[i*3]=Math.cos(a)*r;pos[i*3+1]=random(.08,3.3);pos[i*3+2]=Math.sin(a)*r;vel[i]=random(.15,.75)}const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));const mat=new THREE.PointsMaterial({color:0x43baff,size:.018,transparent:true,opacity:.62,blending:THREE.AdditiveBlending,depthWrite:false});energy=new THREE.Points(geo,mat);energy.userData.velocity=vel;energy.userData.base=pos.slice();chamber.add(energy);
 const beam=new THREE.Mesh(new THREE.CylinderGeometry(.05,.72,3.15,32,1,true),new THREE.MeshBasicMaterial({color:0x37aaff,transparent:true,opacity:.055,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,depthWrite:false}));beam.position.y=1.62;chamber.add(beam);
 const floorGrid=new THREE.GridHelper(12,32,0x17446b,0x102c49);floorGrid.position.y=-.12;scene.add(floorGrid);
-const animate=()=>{requestAnimationFrame(animate);const t=clock3d.getElapsedTime();controls.update();const p=energy.geometry.attributes.position,basePos=energy.userData.base,vels=energy.userData.velocity;for(let i=0;i<p.count;i++){let y=p.getY(i)+vels[i]*.004;if(y>3.35)y=random(.05,.3);const x=basePos[i*3],z=basePos[i*3+2],swirl=t*.16+y*.5;p.setXYZ(i,x+Math.sin(swirl+i)*.012,y,z+Math.cos(swirl+i)*.012)}p.needsUpdate=true;const pulse=visualMode==='speaking'?1.35:visualMode==='listening'?1.15:visualMode==='thinking'?.85:.55;energy.material.opacity=.42+pulse*.13;figureMat.opacity=THREE.MathUtils.lerp(figureMat.opacity,visualMode==='idle'?.1:visualMode==='thinking'?.32:.88,.035);figure.scale.y=1+Math.sin(t*2.2)*.012*pulse;figure.rotation.y=t*.12;figure.userData.orbits[0].rotation.z=t*.38;figure.userData.orbits[1].rotation.x=.9+Math.sin(t*.45)*.18;figure.userData.orbits[2].rotation.y=t*.22;chamber.rotation.y=Math.sin(t*.12)*.025;renderer.render(scene,camera)};clock3d=new THREE.Clock();animate();
+const animate=()=>{requestAnimationFrame(animate);const t=clock3d.getElapsedTime();controls.update();const p=energy.geometry.attributes.position,basePos=energy.userData.base,vels=energy.userData.velocity;for(let i=0;i<p.count;i++){let y=p.getY(i)+vels[i]*.004;if(y>3.35)y=random(.05,.3);const x=basePos[i*3],z=basePos[i*3+2],swirl=t*.16+y*.5;p.setXYZ(i,x+Math.sin(swirl+i)*.012,y,z+Math.cos(swirl+i)*.012)}p.needsUpdate=true;const pulse=visualMode==='speaking'?1.35:visualMode==='listening'?1.15:visualMode==='thinking'?.85:.55;energy.material.opacity=.42+pulse*.13;figureMat.opacity=THREE.MathUtils.lerp(figureMat.opacity,visualMode==='idle'?.1:visualMode==='thinking'?.32:.88,.035);figure.scale.y=1+Math.sin(t*2.2)*.012*pulse;figure.rotation.y=t*.12;const speaking=visualMode==='speaking',thinking=visualMode==='thinking',gesture=speaking?1:thinking?.45:.12;const wave=Math.sin(t*(speaking?3.2:1.15));figure.userData.leftArm.shoulder.rotation.z=-.18+wave*.22*gesture;figure.userData.leftArm.forearm.rotation.z=-.12+Math.max(0,wave)*.38*gesture;figure.userData.rightArm.shoulder.rotation.z=.2-wave*.25*gesture-(thinking?.42:0);figure.userData.rightArm.forearm.rotation.z=.12+Math.max(0,-wave)*.42*gesture-(thinking?.28:0);figure.userData.head.rotation.y=Math.sin(t*.8)*.035;figure.userData.head.rotation.x=Math.sin(t*1.4)*.018;figure.userData.mouth.scale.x=speaking?.65+Math.abs(Math.sin(t*12))*.9:.65;figure.userData.orbits[0].rotation.z=t*.38;figure.userData.orbits[1].rotation.x=.9+Math.sin(t*.45)*.18;figure.userData.orbits[2].rotation.y=t*.22;chamber.rotation.y=Math.sin(t*.12)*.025;renderer.render(scene,camera)};clock3d=new THREE.Clock();animate();
 resizeObserver=new ResizeObserver(()=>{const w=host.clientWidth,h=host.clientHeight;if(!w||!h)return;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h)});resizeObserver.observe(host)}
 function tick(){$('clock').textContent=new Date().toLocaleTimeString('en-PH',{timeZone:'Asia/Manila',hour12:false})}setInterval(tick,1000);tick();
 if(supabase){supabase.auth.getSession().then(({data})=>{session=data.session;if(session)showApp();else showLogin()});supabase.auth.onAuthStateChange((_event,s)=>{session=s;if(s&&$('app').hidden)showApp()})}else showLogin();
