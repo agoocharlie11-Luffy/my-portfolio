@@ -7,7 +7,9 @@ const allowedOrigins = new Set([
 
 function corsHeaders(origin: string | null) {
   return {
-    "Access-Control-Allow-Origin": origin && allowedOrigins.has(origin) ? origin : "https://agoocharlie11-luffy.github.io",
+    "Access-Control-Allow-Origin": origin && allowedOrigins.has(origin)
+      ? origin
+      : "https://agoocharlie11-luffy.github.io",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Vary": "Origin",
@@ -20,6 +22,13 @@ function json(body: unknown, status = 200, origin: string | null = null) {
     headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
   });
 }
+
+type OfficeRequestBody = {
+  action?: string;
+  message?: string;
+  language?: string;
+  voice?: boolean;
+};
 
 Deno.serve(async (req) => {
   const origin = req.headers.get("Origin");
@@ -48,44 +57,114 @@ Deno.serve(async (req) => {
     return json({ error: "Forbidden" }, 403, origin);
   }
 
-  let body: { action?: string };
+  let body: OfficeRequestBody;
   try {
     body = await req.json();
   } catch {
     return json({ error: "Invalid JSON body" }, 400, origin);
   }
-  if (body.action !== "overview") return json({ error: "Unsupported action" }, 400, origin);
 
-  try {
-    const response = await fetch(`${n8nBaseUrl}/webhook/ai-office`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-office-secret": webhookSecret,
-        "Accept": "application/json",
-      },
-      body: JSON.stringify({ action: "overview" }),
-    });
+  if (body.action === "overview") {
+    try {
+      const response = await fetch(`${n8nBaseUrl}/webhook/ai-office`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-office-secret": webhookSecret,
+          "Accept": "application/json",
+        },
+        body: JSON.stringify({ action: "overview" }),
+      });
 
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      return json({ error: "n8n webhook returned HTTP " + response.status }, 502, origin);
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        return json({ error: "n8n webhook returned HTTP " + response.status }, 502, origin);
+      }
+
+      return json({
+        backendConnected: true,
+        webhook: payload,
+        workflows: [
+          { id: "invoice", name: "Gmail Invoice to Xero", status: "pending", checked: false },
+          { id: "reporting", name: "Weekly Xero Financial Summary", status: "pending", checked: false },
+        ],
+        recentExecutions: [],
+        note: "Webhook connection verified. Live workflow status and execution history are not connected yet.",
+        checkedAt: new Date().toISOString(),
+      }, 200, origin);
+    } catch {
+      return json({
+        error: "Unable to reach the n8n webhook. Check that the workflow is active and the production URL is correct.",
+      }, 502, origin);
+    }
+  }
+
+  if (body.action === "chat") {
+    const message = typeof body.message === "string" ? body.message.trim() : "";
+    if (!message) {
+      return json({ error: "Message is required" }, 400, origin);
+    }
+    if (message.length > 2000) {
+      return json({ error: "Message exceeds 2,000 characters" }, 400, origin);
     }
 
-    // The current n8n webhook only acknowledges receipt. It does not yet query
-    // workflow states or execution history, so report those as unverified.
-    return json({
-      backendConnected: true,
-      webhook: payload,
-      workflows: [
-        { id: "invoice", name: "Gmail Invoice to Xero", status: "pending", checked: false },
-        { id: "reporting", name: "Weekly Xero Financial Summary", status: "pending", checked: false },
-      ],
-      recentExecutions: [],
-      note: "Webhook connection verified. Live workflow status and execution history are not connected yet.",
-      checkedAt: new Date().toISOString(),
-    }, 200, origin);
-  } catch {
-    return json({ error: "Unable to reach the n8n webhook. Check that the workflow is active and the production URL is correct." }, 502, origin);
+    const language = typeof body.language === "string" && body.language.trim()
+      ? body.language.trim()
+      : "en-US";
+    const voice = body.voice !== false;
+
+    try {
+      const response = await fetch(`${n8nBaseUrl}/webhook/ai-office`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-office-secret": webhookSecret,
+          "Accept": "application/json",
+        },
+        body: JSON.stringify({
+          action: "chat",
+          message,
+          language,
+          voice,
+          userId: userData.user.id,
+        }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        return json({ error: "n8n webhook returned HTTP " + response.status }, 502, origin);
+      }
+
+      const dataObj = (payload && typeof payload === "object") ? payload as Record<string, unknown> : {};
+      const reply =
+        typeof dataObj.reply === "string" ? dataObj.reply :
+        typeof dataObj.output === "string" ? dataObj.output :
+        typeof dataObj.text === "string" ? dataObj.text :
+        typeof dataObj.response === "string" ? dataObj.response :
+        "";
+
+      const audioBase64 =
+        typeof dataObj.audioBase64 === "string" ? dataObj.audioBase64 :
+        typeof dataObj.audio_base64 === "string" ? dataObj.audio_base64 :
+        undefined;
+
+      const audioMimeType =
+        typeof dataObj.audioMimeType === "string" ? dataObj.audioMimeType :
+        typeof dataObj.audio_mime_type === "string" ? dataObj.audio_mime_type :
+        "audio/mpeg";
+
+      return json({
+        reply,
+        audioBase64,
+        audioMimeType,
+        raw: payload,
+      }, 200, origin);
+    } catch {
+      return json({
+        error: "Unable to reach the n8n chat webhook. Check that the workflow is active and the production URL is correct.",
+      }, 502, origin);
+    }
   }
+
+  return json({ error: "Unsupported action" }, 400, origin);
 });
