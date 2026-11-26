@@ -15,9 +15,9 @@ const bots=[
 {id:'scheduler',name:'Scheduler Bot',desc:'Coordinates scheduled tasks and upcoming automation runs.',workflow:'Existing schedule triggers are managed inside n8n',state:'pending'}];
 let session=null,selected='manager',renderer,scene,camera,controls,clock3d,energy,figure,figureMat,ringGroup,recognition=null,recognizing=false,visualMode='idle',speakTimer=null,resizeObserver;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-function setMode(mode){visualMode=mode;const labels={idle:['ENERGY IDLE','Standing by · ready when you are'],listening:['LISTENING','Receiving your voice · forming projection'],thinking:['PROCESSING','Thinking · connecting to your AI workflow'],speaking:['SPEAKING','Charlie is responding · energy synchronized']};$('holo-state').textContent=labels[mode][0];$('holo-subtitle').textContent=labels[mode][1];$('mic').classList.toggle('listening',mode==='listening');$('sound-bars').classList.toggle('active',mode==='speaking'||mode==='listening');if(figureMat)figureMat.opacity=mode==='idle'?.12:mode==='thinking'?.35:.92;}
+function setMode(mode){visualMode=mode;const labels={idle:['ENERGY IDLE','Standing by · ready when you are'],listening:['LISTENING','Receiving your voice · forming projection'],thinking:['PROCESSING','Thinking · connecting to your AI workflow'],speaking:['SPEAKING','Charlie is responding · energy synchronized']};$('holo-state').textContent=labels[mode][0];$('holo-subtitle').textContent=labels[mode][1];$('mic').classList.toggle('listening',mode==='listening');$('sound-bars').classList.toggle('active',mode==='speaking'||mode==='listening');const sceneEl=$('scene');if(sceneEl)sceneEl.dataset.mode=mode;if(figureMat)figureMat.opacity=mode==='idle'?.12:mode==='thinking'?.35:.92;}
 function showLogin(){$('login').hidden=false;$('app').hidden=true}
-function showApp(){ $('login').hidden=true;$('app').hidden=false;if(!renderer)initScene();renderDepartments();selectBot(selected);refreshData();initSpeech();}
+function showApp(){ $('login').hidden=true;$('app').hidden=false;if(!renderer)initScene();setMode('idle');renderDepartments();selectBot(selected);refreshData();initSpeech();}
 function setError(s){$('login-error').textContent=s||''}
 $('login-form').addEventListener('submit',async e=>{e.preventDefault();setError('');if(!supabase){setError('Supabase configuration is missing in office/config.js.');return}const {data,error}=await supabase.auth.signInWithPassword({email:$('email').value,password:$('password').value});if(error){setError(error.message);return}session=data.session;showApp()});
 $('signout').addEventListener('click',async()=>{if(supabase)await supabase.auth.signOut();session=null;stopRecognition();showLogin()});
@@ -124,7 +124,6 @@ function createHumanCloud(){
   const makePart=(geometry,material,x,y,z,sx=1,sy=1,sz=1)=>{
     const mesh=new THREE.Mesh(geometry,material);mesh.position.set(x,y,z);mesh.scale.set(sx,sy,sz);group.add(mesh);return mesh;
   };
-  // Head, neck and a softly glowing face
   const head=makePart(new THREE.SphereGeometry(.19,24,20),holoMat,0,.72,0,1,.98,.82);
   makePart(new THREE.SphereGeometry(.195,16,14),wireMat,0,.72,0,1,1,.84);
   makePart(new THREE.CylinderGeometry(.065,.075,.12,16),holoMat,0,.49,0);
@@ -132,12 +131,10 @@ function createHumanCloud(){
   makePart(new THREE.SphereGeometry(.018,10,8),eyeMat,-.065,.74,.15);
   makePart(new THREE.SphereGeometry(.018,10,8),eyeMat,.065,.74,.15);
   const mouth=makePart(new THREE.BoxGeometry(.075,.012,.012),eyeMat,0,.655,.158);
-  // Torso and a bright chest reactor
   makePart(new THREE.SphereGeometry(1,24,20),holoMat,0,.13,0,.27,.39,.15);
   makePart(new THREE.SphereGeometry(1,16,12),wireMat,0,.13,0,.285,.405,.16);
   makePart(new THREE.SphereGeometry(.075,16,12),softMat,0,.18,.145,1,1,.5);
   makePart(new THREE.SphereGeometry(.23,20,16),holoMat,0,-.22,0,.92,.28,.72);
-  // Articulated arms: shoulder pivots, elbows and hands
   const makeArm=(side)=>{
     const shoulder=new THREE.Group();shoulder.position.set(side*.29,.38,0);group.add(shoulder);
     const upper=new THREE.Mesh(new THREE.CylinderGeometry(.055,.075,.34,12),holoMat);upper.position.y=-.19;shoulder.add(upper);
@@ -149,7 +146,6 @@ function createHumanCloud(){
     return {shoulder,forearm,side};
   };
   const leftArm=makeArm(-1),rightArm=makeArm(1);
-  // Legs give the projection a complete, readable human silhouette
   for(const side of [-1,1]){
     const leg=new THREE.Group();leg.position.set(side*.13,-.32,0);group.add(leg);
     const thigh=new THREE.Mesh(new THREE.CylinderGeometry(.075,.06,.36,12),holoMat);thigh.position.y=-.19;leg.add(thigh);
@@ -157,7 +153,6 @@ function createHumanCloud(){
     const shin=new THREE.Mesh(new THREE.CylinderGeometry(.045,.055,.31,12),holoMat);shin.position.y=-.54;leg.add(shin);
     const foot=new THREE.Mesh(new THREE.SphereGeometry(.075,12,8),holoMat);foot.position.set(0,-.71,.045);foot.scale.set(.8,.42,1.25);leg.add(foot);
   }
-  // Orbital hologram rings around the avatar
   const orbitA=new THREE.Mesh(new THREE.TorusGeometry(.78,.009,8,128),new THREE.MeshBasicMaterial({color:0x76efff,transparent:true,opacity:.7,blending:THREE.AdditiveBlending}));
   orbitA.rotation.x=Math.PI/2.35;orbitA.rotation.y=.2;orbitA.position.y=.18;group.add(orbitA);
   const orbitB=new THREE.Mesh(new THREE.TorusGeometry(.67,.008,8,128),new THREE.MeshBasicMaterial({color:0x9c78ff,transparent:true,opacity:.68,blending:THREE.AdditiveBlending}));
