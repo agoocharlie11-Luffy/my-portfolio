@@ -32,7 +32,84 @@ function preferredFemaleVoice(){const voices=window.speechSynthesis.getVoices()|
 function cleanSpeechText(text){return String(text||'').replace(/https?:\/\/\S+/gi,' ').replace(/\[([^\]]+)\]\([^)]*\)/g,'$1').replace(/[*_~\x60#>|]/g,' ').replace(/[!?.,;:()[\]{}]/g,' ').replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,' ').replace(/[\u200D\uFE0F]/g,'').replace(/\s+/g,' ').trim()}
 function speak(text){if(!('speechSynthesis'in window)){setMode('idle');$('voice-note').textContent='Text reply received. Speech synthesis is not supported by this browser.';return}window.speechSynthesis.cancel();const voice=preferredFemaleVoice();if(!voice){setMode('idle');$('voice-note').textContent='No supported female voice was found. Please check Windows voice settings.';return}const spoken=cleanSpeechText(text);if(!spoken){setMode('idle');return}const utterance=new SpeechSynthesisUtterance(spoken);utterance.voice=voice;utterance.lang=voice.lang||voiceLocale();$('voice-note').textContent='Selected voice: '+voice.name+' · '+voice.lang;utterance.rate=.94;utterance.pitch=1.04;utterance.volume=1;utterance.onstart=()=>{setMode('speaking');startSpeakingPulse()};utterance.onend=()=>{clearInterval(speakTimer);setMode('idle')};utterance.onerror=()=>{clearInterval(speakTimer);setMode('idle')};window.speechSynthesis.speak(utterance)}
 function startSpeakingPulse(){clearInterval(speakTimer);let t=0;speakTimer=setInterval(()=>{t+=.18;if(energy){const a=energy.geometry.attributes.position;const base=energy.userData.base;for(let i=0;i<a.count;i++){const x=base[i*3],y=base[i*3+1],z=base[i*3+2];const wave=Math.sin(t*8+y*3+Math.atan2(z,x)*2)*.012;a.setXYZ(i,x*(1+wave*2),y+wave,z*(1+wave*2))}a.needsUpdate=true}},45)}
-async function askAssistant(message){const text=String(message||'').trim();if(!text)return;if(text.length>2000){addMessage('assistant','Please keep each message under 2,000 characters.');return}addMessage('user',text);$('chat-status').textContent='Connecting…';$('chat-input').value='';setMode('thinking');if(!session||!supabase){const note='Your session is not authenticated. Please sign in again.';addMessage('assistant',note);$('chat-status').textContent='Not signed in';setMode('idle');return}try{const {data,error}=await supabase.functions.invoke(CONFIG.edgeFunction,{body:{action:'chat',message:text,language:voiceLocale()}});if(error)throw error;const reply=typeof data?.reply==='string'?data.reply:typeof data?.output==='string'?data.output:typeof data?.text==='string'?data.text:'';if(!reply){const note=data?.error||'The secure connection is responding, but the AI workflow has not returned a reply yet. Configure the n8n ai-office webhook with a chat branch and an AI model to enable conversations.';addMessage('assistant',note);$('chat-status').textContent='AI workflow not ready';setMode('idle');return}addMessage('assistant',reply);$('chat-status').textContent='Reply received';speak(reply)}catch(err){const note='I could not reach the AI service. Check that the office-api Edge Function is deployed and that its secured n8n webhook is online.';addMessage('assistant',note);$('chat-status').textContent='Connection unavailable';setMode('idle')}}
+async function askAssistant(message){
+  const text=String(message||'').trim();
+  if(!text)return;
+  if(text.length>2000){
+    addMessage('assistant','Please keep each message under 2,000 characters.');
+    return;
+  }
+  addMessage('user',text);
+  $('chat-status').textContent='Connecting…';
+  $('chat-input').value='';
+  setMode('thinking');
+  if(!session||!supabase){
+    addMessage('assistant','Your session is not authenticated. Please sign in again.');
+    $('chat-status').textContent='Not signed in';
+    setMode('idle');
+    return;
+  }
+  try{
+    const {data,error}=await supabase.functions.invoke(CONFIG.edgeFunction,{
+      body:{
+        action:'chat',
+        message:text,
+        language:voiceLocale(),
+        voice:true
+      }
+    });
+    if(error)throw error;
+    const reply=typeof data?.reply==='string'?data.reply:
+      typeof data?.output==='string'?data.output:
+      typeof data?.text==='string'?data.text:
+      typeof data?.response==='string'?data.response:'';
+    if(!reply){
+      addMessage('assistant',data?.error||'Charlie did not return a text reply.');
+      $('chat-status').textContent='AI workflow not ready';
+      setMode('idle');
+      return;
+    }
+    addMessage('assistant',reply);
+    $('chat-status').textContent='Reply received';
+    if(typeof data?.audioBase64==='string'&&data.audioBase64.length>0){
+      const mime=typeof data.audioMimeType==='string'?data.audioMimeType:'audio/mpeg';
+      const audio=new Audio('data:'+mime+';base64,'+data.audioBase64);
+      audio.onplay=()=>{
+        setMode('speaking');
+        startSpeakingPulse();
+        $('voice-note').textContent='Charlie is speaking with ElevenLabs voice.';
+      };
+      audio.onended=()=>{
+        clearInterval(speakTimer);
+        setMode('idle');
+      };
+      audio.onerror=()=>{
+        clearInterval(speakTimer);
+        setMode('idle');
+        $('voice-note').textContent='ElevenLabs audio was returned but could not be played.';
+      };
+      try{
+        window.speechSynthesis?.cancel();
+        await audio.play();
+      }catch(playError){
+        console.error('ElevenLabs playback error:',playError);
+        clearInterval(speakTimer);
+        setMode('idle');
+        $('voice-note').textContent='ElevenLabs audio playback was blocked or failed.';
+      }
+    }else{
+      clearInterval(speakTimer);
+      setMode('idle');
+      $('voice-note').textContent='Text reply received, but no ElevenLabs audio was returned. Check the Charlie TTS workflow.';
+      console.warn('No audioBase64 returned by office-api:',data);
+    }
+  }catch(err){
+    console.error('Charlie chat error:',err);
+    addMessage('assistant','I could not reach the AI service. Check the office-api Edge Function and n8n webhook.');
+    $('chat-status').textContent='Connection unavailable';
+    setMode('idle');
+  }
+}
 $('chat-form').addEventListener('submit',e=>{e.preventDefault();askAssistant($('chat-input').value)});
 function initSpeech(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){$('mic').disabled=true;$('voice-note').textContent='Voice input is not supported in this browser. You can still chat using text. Try a current version of Chrome or Edge over HTTPS.';return}recognition=new SR();recognition.lang=voiceLocale();recognition.interimResults=false;recognition.maxAlternatives=1;recognition.onstart=()=>{recognizing=true;setMode('listening');$('voice-note').textContent='Listening… speak now.'};recognition.onresult=e=>{const transcript=e.results?.[0]?.[0]?.transcript||'';if(transcript)askAssistant(transcript)};recognition.onerror=e=>{$('voice-note').textContent=e.error==='not-allowed'?'Microphone permission was denied. Allow microphone access in your browser settings.':'Voice input error: '+e.error+'. You can use text chat instead.';recognizing=false;setMode('idle')};recognition.onend=()=>{recognizing=false;if(visualMode==='listening')setMode('idle');$('mic').querySelector('b').textContent='Talk to Charlie'};$('mic').addEventListener('click',()=>{if(recognizing){stopRecognition();return}try{recognition.lang=voiceLocale();recognition.start();$('mic').querySelector('b').textContent='Stop listening'}catch(e){$('voice-note').textContent='Microphone is busy. Please try again.'}})}
 function stopRecognition(){if(recognition&&recognizing)recognition.stop();recognizing=false}
