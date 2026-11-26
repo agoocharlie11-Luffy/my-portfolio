@@ -32,25 +32,101 @@ function preferredFemaleVoice(){const voices=window.speechSynthesis.getVoices()|
 function cleanSpeechText(text){return String(text||'').replace(/https?:\/\/\S+/gi,' ').replace(/\[([^\]]+)\]\([^)]*\)/g,'$1').replace(/[*_~\x60#>|]/g,' ').replace(/[!?.,;:()[\]{}]/g,' ').replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,' ').replace(/[\u200D\uFE0F]/g,'').replace(/\s+/g,' ').trim()}
 function speak(text){if(!('speechSynthesis'in window)){setMode('idle');$('voice-note').textContent='Text reply received. Speech synthesis is not supported by this browser.';return}window.speechSynthesis.cancel();const voice=preferredFemaleVoice();if(!voice){setMode('idle');$('voice-note').textContent='No supported female voice was found. Please check Windows voice settings.';return}const spoken=cleanSpeechText(text);if(!spoken){setMode('idle');return}const utterance=new SpeechSynthesisUtterance(spoken);utterance.voice=voice;utterance.lang=voice.lang||voiceLocale();$('voice-note').textContent='Selected voice: '+voice.name+' · '+voice.lang;utterance.rate=.94;utterance.pitch=1.04;utterance.volume=1;utterance.onstart=()=>{setMode('speaking');startSpeakingPulse()};utterance.onend=()=>{clearInterval(speakTimer);setMode('idle')};utterance.onerror=()=>{clearInterval(speakTimer);setMode('idle')};window.speechSynthesis.speak(utterance)}
 function startSpeakingPulse(){clearInterval(speakTimer);let t=0;speakTimer=setInterval(()=>{t+=.18;if(energy){const a=energy.geometry.attributes.position;const base=energy.userData.base;for(let i=0;i<a.count;i++){const x=base[i*3],y=base[i*3+1],z=base[i*3+2];const wave=Math.sin(t*8+y*3+Math.atan2(z,x)*2)*.012;a.setXYZ(i,x*(1+wave*2),y+wave,z*(1+wave*2))}a.needsUpdate=true}},45)}
-async function askAssistant(message){const text=String(message||'').trim();if(!text)return;if(text.length>2000){addMessage('assistant','Please keep each message under 2,000 characters.');return}addMessage('user',text);$('chat-status').textContent='Connecting…';$('chat-input').value='';setMode('thinking');if(!session||!supabase){const note='Your session is not authenticated. Please sign in again.';addMessage('assistant',note);$('chat-status').textContent='Not signed in';setMode('idle');return}try{const {data,error}=await supabase.functions.invoke(CONFIG.edgeFunction,{body:{action:'chat',message:text,language:voiceLocale()}});if(error)throw error;const reply=typeof data?.reply==='string'?data.reply:typeof data?.output==='string'?data.output:typeof data?.text==='string'?data.text:'';if(!reply){const note=data?.error||'The secure connection is responding, but the AI workflow has not returned a reply yet. Configure the n8n ai-office webhook with a chat branch and an AI model to enable conversations.';addMessage('assistant',note);$('chat-status').textContent='AI workflow not ready';setMode('idle');return}addMessage('assistant',reply);$('chat-status').textContent='Reply received';speak(reply)}catch(err){const note='I could not reach the AI service. Check that the office-api Edge Function is deployed and that its secured n8n webhook is online.';addMessage('assistant',note);$('chat-status').textContent='Connection unavailable';setMode('idle')}}
-$('chat-form').addEventListener('submit',e=>{e.preventDefault();askAssistant($('chat-input').value)});
-function initSpeech(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){$('mic').disabled=true;$('voice-note').textContent='Voice input is not supported in this browser. You can still chat using text. Try a current version of Chrome or Edge over HTTPS.';return}recognition=new SR();recognition.lang=voiceLocale();recognition.interimResults=false;recognition.maxAlternatives=1;recognition.onstart=()=>{recognizing=true;setMode('listening');$('voice-note').textContent='Listening… speak now.'};recognition.onresult=e=>{const transcript=e.results?.[0]?.[0]?.transcript||'';if(transcript)askAssistant(transcript)};recognition.onerror=e=>{$('voice-note').textContent=e.error==='not-allowed'?'Microphone permission was denied. Allow microphone access in your browser settings.':'Voice input error: '+e.error+'. You can use text chat instead.';recognizing=false;setMode('idle')};recognition.onend=()=>{recognizing=false;if(visualMode==='listening')setMode('idle');$('mic').querySelector('b').textContent='Talk to Charlie'};$('mic').addEventListener('click',()=>{if(recognizing){stopRecognition();return}try{recognition.lang=voiceLocale();recognition.start();$('mic').querySelector('b').textContent='Stop listening'}catch(e){$('voice-note').textContent='Microphone is busy. Please try again.'}})}
-function stopRecognition(){if(recognition&&recognizing)recognition.stop();recognizing=false}
-$('language').addEventListener('change',()=>{if(recognition)recognition.lang=voiceLocale()});
-function random(min,max){return min+Math.random()*(max-min)}
-function createHumanCloud(){const count=1900,positions=new Float32Array(count*3),base=new Float32Array(count*3);for(let i=0;i<count;i++){let x,y,z;const part=Math.random();if(part<.2){const a=random(0,Math.PI*2),r=random(0,.27);x=Math.cos(a)*r;y=random(1.25,2.02);z=Math.sin(a)*r}else if(part<.68){y=random(-.1,1.25);const width=.23+(1.25-y)*.09;x=random(-width,width);z=random(-.16,.16)}else{const side=Math.random()<.5?-1:1;y=random(.48,1.55);x=side*random(.24,.76);z=random(-.11,.11)}positions[i*3]=base[i*3]=x;positions[i*3+1]=base[i*3+1]=y;positions[i*3+2]=base[i*3+2]=z}const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(positions,3));const mat=new THREE.PointsMaterial({color:0x75eaff,size:.023,transparent:true,opacity:.12,blending:THREE.AdditiveBlending,depthWrite:false});const pts=new THREE.Points(geo,mat);pts.position.y=.1;pts.userData.base=base;figureMat=mat;return pts}
-function initScene(){const host=$('scene');scene=new THREE.Scene();camera=new THREE.PerspectiveCamera(38,host.clientWidth/host.clientHeight,.1,100);camera.position.set(0,2.1,7.4);renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));renderer.setSize(host.clientWidth,host.clientHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;host.appendChild(renderer.domElement);controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.enablePan=false;controls.minDistance=5.5;controls.maxDistance=10;controls.minPolarAngle=1.05;controls.maxPolarAngle=1.72;controls.target.set(0,1.1,0);controls.autoRotate=true;controls.autoRotateSpeed=.35;
-scene.add(new THREE.HemisphereLight(0x8bdfff,0x06101c,1.5));const key=new THREE.PointLight(0x3cbcff,28,12);key.position.set(0,3,2);scene.add(key);const rim=new THREE.PointLight(0x1265ff,18,10);rim.position.set(-3,1,-2);scene.add(rim);
-const chamber=new THREE.Group();scene.add(chamber);const glass=new THREE.Mesh(new THREE.CylinderGeometry(2.05,1.82,3.55,96,1,true),new THREE.MeshPhysicalMaterial({color:0x8ddcff,metalness:.08,roughness:.12,transparent:true,opacity:.075,side:THREE.DoubleSide,depthWrite:false}));glass.position.y=1.65;chamber.add(glass);
-const rimMat=new THREE.MeshBasicMaterial({color:0x9deeff,transparent:true,opacity:.72});for(const [y,r] of [[-.08,1.83],[.12,1.9],[3.38,2.05],[3.52,2]]){const ring=new THREE.Mesh(new THREE.TorusGeometry(r,.018,8,128),rimMat);ring.rotation.x=Math.PI/2;ring.position.y=y;chamber.add(ring)}
-for(let i=0;i<5;i++){const ring=new THREE.Mesh(new THREE.TorusGeometry(2.01-i*.025,.008,6,128),new THREE.MeshBasicMaterial({color:0x4abfff,transparent:true,opacity:.18}));ring.rotation.x=Math.PI/2;ring.position.y=.4+i*.63;chamber.add(ring)}
-const base=new THREE.Mesh(new THREE.CylinderGeometry(1.9,1.9,.12,64),new THREE.MeshStandardMaterial({color:0x0b2740,metalness:.7,roughness:.25,emissive:0x062e55,emissiveIntensity:1}));base.position.y=-.02;chamber.add(base);
-const floorGlow=new THREE.Mesh(new THREE.CircleGeometry(1.8,64),new THREE.MeshBasicMaterial({color:0x087fc4,transparent:true,opacity:.12,side:THREE.DoubleSide}));floorGlow.rotation.x=-Math.PI/2;floorGlow.position.y=.05;chamber.add(floorGlow);
-figure=createHumanCloud();figure.position.y=.35;chamber.add(figure);
-const n=2600,pos=new Float32Array(n*3),vel=new Float32Array(n);for(let i=0;i<n;i++){const a=random(0,Math.PI*2),r=Math.sqrt(Math.random())*1.65;pos[i*3]=Math.cos(a)*r;pos[i*3+1]=random(.08,3.3);pos[i*3+2]=Math.sin(a)*r;vel[i]=random(.15,.75)}const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));const mat=new THREE.PointsMaterial({color:0x43baff,size:.018,transparent:true,opacity:.62,blending:THREE.AdditiveBlending,depthWrite:false});energy=new THREE.Points(geo,mat);energy.userData.velocity=vel;energy.userData.base=pos.slice();chamber.add(energy);
-const beam=new THREE.Mesh(new THREE.CylinderGeometry(.05,.72,3.15,32,1,true),new THREE.MeshBasicMaterial({color:0x37aaff,transparent:true,opacity:.055,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,depthWrite:false}));beam.position.y=1.62;chamber.add(beam);
-const floorGrid=new THREE.GridHelper(12,32,0x17446b,0x102c49);floorGrid.position.y=-.12;scene.add(floorGrid);
-const animate=()=>{requestAnimationFrame(animate);const t=clock3d.getElapsedTime();controls.update();const p=energy.geometry.attributes.position,basePos=energy.userData.base,vels=energy.userData.velocity;for(let i=0;i<p.count;i++){let y=p.getY(i)+vels[i]*.004;if(y>3.35)y=random(.05,.3);const x=basePos[i*3],z=basePos[i*3+2],swirl=t*.16+y*.5;p.setXYZ(i,x+Math.sin(swirl+i)*.012,y,z+Math.cos(swirl+i)*.012)}p.needsUpdate=true;const pulse=visualMode==='speaking'?1.35:visualMode==='listening'?1.15:visualMode==='thinking'?.85:.55;energy.material.opacity=.42+pulse*.13;figureMat.opacity=THREE.MathUtils.lerp(figureMat.opacity,visualMode==='idle'?.1:visualMode==='thinking'?.32:.88,.035);figure.scale.y=1+Math.sin(t*2.2)*.012*pulse;figure.rotation.y=Math.sin(t*.25)*.04;chamber.rotation.y=Math.sin(t*.12)*.025;renderer.render(scene,camera)};clock3d=new THREE.Clock();animate();
-resizeObserver=new ResizeObserver(()=>{const w=host.clientWidth,h=host.clientHeight;if(!w||!h)return;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h)});resizeObserver.observe(host)}
-function tick(){$('clock').textContent=new Date().toLocaleTimeString('en-PH',{timeZone:'Asia/Manila',hour12:false})}setInterval(tick,1000);tick();
-if(supabase){supabase.auth.getSession().then(({data})=>{session=data.session;if(session)showApp();else showLogin()});supabase.auth.onAuthStateChange((_event,s)=>{session=s;if(s&&$('app').hidden)showApp()})}else showLogin();
+
+async function askAssistant(message) {
+  const text = String(message || '').trim();
+  if (!text) return;
+
+  if (text.length > 2000) {
+    addMessage('assistant', 'Please keep each message under 2,000 characters.');
+    return;
+  }
+
+  addMessage('user', text);
+  $('chat-status').textContent = 'Connecting…';
+  $('chat-input').value = '';
+  setMode('thinking');
+
+  if (!session || !supabase) {
+    addMessage('assistant', 'Your session is not authenticated. Please sign in again.');
+    $('chat-status').textContent = 'Not signed in';
+    setMode('idle');
+    return;
+  }
+
+  try {
+    const { data, error } = await supabase.functions.invoke(
+      CONFIG.edgeFunction,
+      {
+        body: {
+          action: 'chat',
+          message: text,
+          language: voiceLocale(),
+          voice: true
+        }
+      }
+    );
+
+    if (error) throw error;
+
+    const reply =
+      typeof data?.reply === 'string' ? data.reply :
+      typeof data?.output === 'string' ? data.output :
+      typeof data?.text === 'string' ? data.text : '';
+
+    if (!reply) {
+      addMessage('assistant', data?.error || 'No reply received from Charlie.');
+      $('chat-status').textContent = 'AI workflow not ready';
+      setMode('idle');
+      return;
+    }
+
+    addMessage('assistant', reply);
+    $('chat-status').textContent = 'Reply received';
+
+    if (data?.audioBase64) {
+      try {
+        window.speechSynthesis?.cancel();
+
+        const audio = new Audio(
+          `data:${data.audioMimeType || 'audio/mpeg'};base64,${data.audioBase64}`
+        );
+
+        audio.onplay = () => {
+          setMode('speaking');
+          startSpeakingPulse();
+          $('voice-note').textContent = 'Charlie is speaking with ElevenLabs voice.';
+        };
+
+        audio.onended = () => {
+          clearInterval(speakTimer);
+          setMode('idle');
+        };
+
+        audio.onerror = () => {
+          clearInterval(speakTimer);
+          setMode('idle');
+          $('voice-note').textContent = 'ElevenLabs audio could not be played.';
+        };
+
+        await audio.play();
+      } catch (audioError) {
+        console.error('ElevenLabs playback error:', audioError);
+        setMode('idle');
+        $('voice-note').textContent = 'Audio playback failed.';
+      }
+    } else {
+      console.warn('No ElevenLabs audio returned. Using browser voice fallback.');
+      speak(reply);
+    }
+
+  } catch (err) {
+    console.error('Charlie chat error:', err);
+    addMessage(
+      'assistant',
+      'I could not reach the AI service. Check the office-api Edge Function and n8n webhook.'
+    );
+    $('chat-status').textContent = 'Connection unavailable';
+    setMode('idle');
+  }
+}
